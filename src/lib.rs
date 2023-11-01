@@ -35,21 +35,27 @@ pub struct WebSocketDecoderAddDataResult<'a> {
 }
 
 impl WebSocketDecoder {
-    /// Call this function if any of the following conditions are met:
+    /// Call this function again if any of the following conditions are met:
     /// 
     /// * When new incoming data is available on the socket
     /// * When previous invocation of `add_data` returned non-empty `unprocessed_input_data`.
     /// * When previous invocation of `add_data` returned non-`None` `event.
     pub fn add_data<'a, 'b>(
         &'a mut self,
-        data: &'b [u8],
-    ) -> WebSocketDecoderAddDataResult<'b> {
+        data: &'b mut [u8],
+    ) -> Result<WebSocketDecoderAddDataResult<'b>, Error> {
         todo!()
+    }
+
+    pub fn new() -> Self {
+        WebSocketDecoder {  }
     }
 }
 
+#[derive(Debug)]
 pub enum Error {}
 
+#[derive(Debug,PartialEq, Eq)]
 pub struct FrameInfo {
     pub payload_length: u64,
 }
@@ -61,26 +67,14 @@ pub enum WebSocketMessageType {
 
 /// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
 /// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
+#[derive(Debug,PartialEq, Eq)]
 pub enum WebsocketEvent {
-    /// Decode-only event, ignored by the encoder. Redundant, intended just for easier usage of the decoder.
-    WebSocketMessageStart(WebSocketMessageType),
     DataFrameStart(FrameInfo),
     DataFrameChunk,
     DataFrameEnd(FrameInfo),
-    /// Decode-only event, ignored by the encoder. Redundant, intended just for easier usage of the decoder.
-    WebSocketMessageEnd(WebSocketMessageType),
     ControlFrameStart(FrameInfo),
     ControlFrameChunk,
     ControlFrameEnd(FrameInfo),
-    Error(Error),
-    /// Special encoder-only event that instructs encoder to roll back its state by specified number of output bytes,
-    /// for cases when previous `add_event`'s output chunk was only partially written to a socket and this `add_event`
-    /// should just produce the same bytes again.
-    /// 
-    /// Rewinding `DataFrameStart`s produce output data (some trailing part of the header).
-    /// 
-    /// Rewinding `DataFrameChunk` should produce no output data. You should rewind your input data, then use `DataFrameChunk` again.
-    Rewind(usize),
 }
 
 /*impl core::error::Error for Error {
