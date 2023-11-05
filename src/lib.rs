@@ -36,7 +36,7 @@ impl<const C: usize> SmallBufWithLen<C> {
     fn slurp<'a, 'c>(&'c mut self, data: &'a mut [u8]) -> &'a mut [u8] {
         let offset = self.len as usize;
         let maxlen = (C - offset).min(data.len());
-        self.data[offset..maxlen].copy_from_slice(&data[..maxlen]);
+        self.data[offset..(offset+maxlen)].copy_from_slice(&data[..maxlen]);
         self.len += maxlen as u8;
         &mut data[maxlen..]
     }
@@ -52,6 +52,7 @@ impl<const C: usize> SmallBufWithLen<C> {
 }
 
 type PayloadLength = u64;
+type FrameDecoderError = core::convert::Infallible;
 
 /// Represents what data is expected to come next
 #[derive(Clone, Copy)]
@@ -134,16 +135,16 @@ impl WebSocketFrameDecoder {
     pub fn add_data<'a, 'b>(
         &'a mut self,
         mut data: &'b mut [u8],
-    ) -> WebSocketDecoderAddDataResult<'b> {
+    ) -> Result<WebSocketDecoderAddDataResult<'b>, FrameDecoderError> {
         loop {
             
             macro_rules! return_dummy {
                 () => {
-                    return WebSocketDecoderAddDataResult {
+                    return Ok(WebSocketDecoderAddDataResult {
                         unprocessed_input_data: data,
                         decoded_payload: None,
                         event: None,
-                    };
+                    });
                 };
             }
             if data.len() == 0 && ! matches!(self.state, FrameDecodingState::PayloadData{remaining: 0, ..}) {
@@ -194,24 +195,24 @@ impl WebSocketFrameDecoder {
                         phase: Some(NonMaxU8::default()),
                         remaining: self.payload_length,
                     };
-                    return WebSocketDecoderAddDataResult {
+                    return Ok(WebSocketDecoderAddDataResult {
                         unprocessed_input_data: data,
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameStart(self.get_frame_info(true))),
-                    };
+                    });
                 }
                 FrameDecodingState::PayloadData {
                     phase,
                     remaining: 0,
                 } => {
                     self.state = FrameDecodingState::HeaderBeginning(SmallBufWithLen::new());
-                    return WebSocketDecoderAddDataResult {
+                    return Ok(WebSocketDecoderAddDataResult {
                         unprocessed_input_data: data,
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameEnd(
                             self.get_frame_info(phase.is_some()),
                         )),
-                    };
+                    });
                 }
                 FrameDecodingState::PayloadData {
                     ref mut phase,
@@ -234,11 +235,11 @@ impl WebSocketFrameDecoder {
                     }
 
                     *remaining -= max_len as PayloadLength;
-                    return WebSocketDecoderAddDataResult {
+                    return Ok(WebSocketDecoderAddDataResult {
                         unprocessed_input_data: rest,
                         decoded_payload: Some(payload_chunk),
                         event: Some(WebsocketEvent::FramePayloadChunk),
-                    };
+                    });
                 }
             }
             if length_is_ready {
@@ -249,11 +250,11 @@ impl WebSocketFrameDecoder {
                         phase: None,
                         remaining: self.payload_length,
                     };
-                    return WebSocketDecoderAddDataResult {
+                    return Ok(WebSocketDecoderAddDataResult {
                         unprocessed_input_data: data,
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameStart(self.get_frame_info(false))),
-                    };
+                    });
                 }
             }
         }
