@@ -9,9 +9,22 @@ edition = "2021"
 nonmax = { version = "0.5.3", default-features = false }
 
 [dev-dependencies]
+criterion = "0.5.1"
 http-body-util = "0.1.0-rc.3"
 hyper = { version = "1.0.0-rc.4", features = ["client", "http1"] }
 pin-project-lite = "0.2.13"
 pretty_assertions = "1.4.0"
 tokio = { version = "1.32.0", features = ["net", "rt", "macros", "io-util", "time"] }
 tungstenite = "0.20.1"
+
+[[bench]]
+name = "masking_benchmark"
+harness = false
+
+[features]
+unoptimised_masking=[]
+explicitly_aligned_masking=[]
+masking_slice_size_4=[]
+masking_slice_size_8=[]
+masking_slice_size_16=[]
+masking_slice_size_32=[]

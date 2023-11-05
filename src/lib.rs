@@ -93,6 +93,8 @@ impl<'a> core::fmt::Debug for WebSocketDecoderAddDataResult<'a> {
     }
 }
 
+pub mod masking;
+
 impl WebSocketFrameDecoder {
     fn get_opcode(&self) -> Opcode {
         use Opcode::*;
@@ -226,11 +228,8 @@ impl WebSocketFrameDecoder {
 
                     if let Some(phase) = phase {
                         let mut ph = phase.get();
-                        for b in payload_chunk.iter_mut() {
-                            let index = (ph & 0x03) as usize;
-                            *b ^= self.mask[index];
-                            ph += 1;
-                        }
+                        masking::apply_mask(self.mask, payload_chunk, ph);
+                        ph += payload_chunk.len() as u8;
                         *phase = NonMaxU8::new(ph & 0x03).unwrap();
                     }
 

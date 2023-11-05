@@ -223,7 +223,7 @@ fn decode_bin64k() {
     let mut input : Vec<u8> = (*b"\x82\x7F\x00\x00\x00\x00\x00\x01\x00\x00").into();
     let zeroes = vec![0; 65536];
     input.extend_from_slice(&zeroes[..]);
-    assert_eq!(decode(&input, None), (zeroes, vec![
+    std::assert_eq!(decode(&input, None), (zeroes, vec![
         WebsocketEvent::FrameStart(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: None, fin: true, reserved: 0 }),
         WebsocketEvent::FramePayloadChunk,
         WebsocketEvent::FrameEnd(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: None, fin: true, reserved: 0 }),
@@ -235,7 +235,7 @@ fn decode_bin64k_bc() {
     let mut input : Vec<u8> = (*b"\x82\x7F\x00\x00\x00\x00\x00\x01\x00\x00").into();
     let zeroes = vec![0; 65536];
     input.extend_from_slice(&zeroes[..]);
-    assert_eq!(decode(&input, Some(32767)), (zeroes, vec![
+    std::assert_eq!(decode(&input, Some(32767)), (zeroes, vec![
         WebsocketEvent::FrameStart(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: None, fin: true, reserved: 0 }),
         WebsocketEvent::FramePayloadChunk,
         WebsocketEvent::FramePayloadChunk,
@@ -244,3 +244,79 @@ fn decode_bin64k_bc() {
     ]));
 }
 
+
+#[test]
+fn decode_bin64k_masked() {
+    let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();
+    let zeroes = vec![0; 65536];
+    for _ in 0..(65536 / 4) {
+        input.extend_from_slice(b"\x11\x22\x33\x44");
+    }
+    std::assert_eq!(decode(&input, None), (zeroes, vec![
+        WebsocketEvent::FrameStart(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FrameEnd(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+    ]));
+}
+
+#[test]
+fn decode_bin64k_masked_chunks1() {
+    let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();
+    let zeroes = vec![0; 65536];
+    for _ in 0..(65536 / 4) {
+        input.extend_from_slice(b"\x11\x22\x33\x44");
+    }
+    std::assert_eq!(decode(&input, Some(65535)), (zeroes, vec![
+        WebsocketEvent::FrameStart(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FrameEnd(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+    ]));
+}
+
+
+#[test]
+fn decode_bin64k_masked_chunks2() {
+    let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();
+    let zeroes = vec![0; 65536];
+    for _ in 0..(65536 / 4) {
+        input.extend_from_slice(b"\x11\x22\x33\x44");
+    }
+    std::assert_eq!(decode(&input, Some(2039)), (zeroes, vec![
+        WebsocketEvent::FrameStart(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FramePayloadChunk,
+        WebsocketEvent::FrameEnd(FrameInfo { opcode: Opcode::Binary, payload_length: 65536, mask: Some(*b"\x11\x22\x33\x44"), fin: true, reserved: 0 }),
+    ]));
+}
