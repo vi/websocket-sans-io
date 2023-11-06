@@ -15,13 +15,14 @@ pub type PayloadLength = u64;
 pub type PayloadLength = u16;
 
 mod frame_encoding;
-pub use frame_encoding::WebSocketFrameEncoder;
+pub use frame_encoding::WebsocketFrameEncoder;
 mod frame_decoding;
-pub use frame_decoding::{FrameDecoderError,WebSocketFrameDecoder};
+pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder};
 
 mod message_decoding;
+pub use message_decoding::{WebsocketMessageDecoder,MessageDecoderError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Opcode {
     Continuation = 0,
     Text = 1,
@@ -38,10 +39,11 @@ pub enum Opcode {
     ReservedControlC = 0xC,
     ReservedControlD = 0xD,
     ReservedControlE = 0xE,
+    #[default]
     ReservedControlF = 0xF,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct FrameInfo {
     pub opcode: Opcode,
     pub payload_length: PayloadLength,
@@ -50,9 +52,14 @@ pub struct FrameInfo {
     pub reserved: u8,
 }
 
-pub enum WebSocketMessageType {
+pub enum WebSocketDataMessageType {
     Binary,
     Text,
+}
+pub enum WebSocketControlMessageType {
+    Ping,
+    Pong,
+    Close,
 }
 
 /// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
@@ -64,6 +71,24 @@ pub enum WebsocketFrameEvent {
     End(FrameInfo),
 }
 
+pub enum WebsocketDataMessageEvent {
+    Start(WebSocketDataMessageType),
+    MorePayloadBytesWillFollow(PayloadLength),
+    PayloadChunk,
+    End(WebSocketDataMessageType),
+}
+pub enum WebsocketControlMessageEvent {
+    Start(WebSocketControlMessageType, PayloadLength),
+    PayloadChunk,
+    End(WebSocketControlMessageType),
+}
+pub enum WebsocketMessageEvent {
+    Data(WebsocketDataMessageEvent),
+    Control(WebsocketControlMessageEvent),
+}
 
 #[cfg(test)]
-mod tests;
+mod decoding_test;
+
+#[cfg(test)]
+mod frame_roundtrip_test;

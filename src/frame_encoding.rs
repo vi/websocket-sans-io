@@ -4,7 +4,7 @@ use tinyvec::ArrayVec;
 use crate::FrameInfo;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct WebSocketFrameEncoder {
+pub struct WebsocketFrameEncoder {
     mask: [u8; 4],
     phase: Option<NonMaxU8>,
 }
@@ -14,9 +14,9 @@ pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;
 #[cfg(not(feature = "large_frames"))]
 pub const MAX_HEADER_LENGTH: usize = 2 + 2 + 4;
 
-impl WebSocketFrameEncoder {
-    pub const fn new() -> WebSocketFrameEncoder {
-        WebSocketFrameEncoder {
+impl WebsocketFrameEncoder {
+    pub const fn new() -> WebsocketFrameEncoder {
+        WebsocketFrameEncoder {
             mask: [0; 4],
             phase: None,
         }

@@ -15,7 +15,7 @@ fn decode(input: &[u8], max_chunk_size : Option<usize>) -> (Vec<u8>, Vec<Websock
     let mut input : Vec<u8> = input.into();
     let mut payload = Vec::new();
     let mut events = Vec::new();
-    let mut d  = frame_decoding::WebSocketFrameDecoder::new();
+    let mut d  = frame_decoding::WebsocketFrameDecoder::new();
     
     if let Some(mcs) = max_chunk_size {
         for chunk in input.chunks_mut(mcs) {
@@ -28,7 +28,7 @@ fn decode(input: &[u8], max_chunk_size : Option<usize>) -> (Vec<u8>, Vec<Websock
     (payload, events)
 }
 
-fn decode_chunk(d: &mut frame_decoding::WebSocketFrameDecoder, mut ibuf: &mut [u8], payload: &mut Vec<u8>, events: &mut Vec<WebsocketFrameEvent>) {
+fn decode_chunk(d: &mut frame_decoding::WebsocketFrameDecoder, mut ibuf: &mut [u8], payload: &mut Vec<u8>, events: &mut Vec<WebsocketFrameEvent>) {
     loop {
         //dbg!(ibuf.len());
         let ret = d.add_data(ibuf).unwrap();
