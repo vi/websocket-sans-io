@@ -1106,6 +1106,7 @@ dependencies = [
  "nonmax",
  "pin-project-lite",
  "pretty_assertions",
+ "tinyvec",
  "tokio",
  "tungstenite",
 ]

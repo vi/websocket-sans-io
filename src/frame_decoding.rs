@@ -13,7 +13,7 @@ pub enum FrameDecoderError {
     ExceededFrameSize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct SmallBufWithLen<const C: usize> {
     pub(crate) len: u8,
     pub(crate) data: [u8; C],
@@ -40,7 +40,7 @@ impl<const C: usize> SmallBufWithLen<C> {
 }
 
 /// Represents what data is expected to come next
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum FrameDecodingState {
     HeaderBeginning(SmallBufWithLen<2>),
     PayloadLength16(SmallBufWithLen<2>),
@@ -53,6 +53,8 @@ pub(crate) enum FrameDecodingState {
     },
 }
 
+
+#[derive(Clone, Copy, Debug)]
 pub struct WebSocketFrameDecoder {
     pub(crate) state: FrameDecodingState,
     pub(crate) mask: [u8; 4],
