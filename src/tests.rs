@@ -15,7 +15,7 @@ fn decode(input: &[u8], max_chunk_size : Option<usize>) -> (Vec<u8>, Vec<Websock
     let mut input : Vec<u8> = input.into();
     let mut payload = Vec::new();
     let mut events = Vec::new();
-    let mut d  = WebSocketFrameDecoder::new();
+    let mut d  = frame_decoding::WebSocketFrameDecoder::new();
     
     if let Some(mcs) = max_chunk_size {
         for chunk in input.chunks_mut(mcs) {
@@ -28,7 +28,7 @@ fn decode(input: &[u8], max_chunk_size : Option<usize>) -> (Vec<u8>, Vec<Websock
     (payload, events)
 }
 
-fn decode_chunk(d: &mut WebSocketFrameDecoder, mut ibuf: &mut [u8], payload: &mut Vec<u8>, events: &mut Vec<WebsocketEvent>) {
+fn decode_chunk(d: &mut frame_decoding::WebSocketFrameDecoder, mut ibuf: &mut [u8], payload: &mut Vec<u8>, events: &mut Vec<WebsocketEvent>) {
     loop {
         //dbg!(ibuf.len());
         let ret = d.add_data(ibuf).unwrap();
@@ -218,6 +218,7 @@ fn decode_bin256() {
     ]));
 }
 
+#[cfg(feature="large_frames")]
 #[test]
 fn decode_bin64k() {
     let mut input : Vec<u8> = (*b"\x82\x7F\x00\x00\x00\x00\x00\x01\x00\x00").into();
@@ -230,6 +231,7 @@ fn decode_bin64k() {
     ]));
 }
 
+#[cfg(feature="large_frames")]
 #[test]
 fn decode_bin64k_bc() {
     let mut input : Vec<u8> = (*b"\x82\x7F\x00\x00\x00\x00\x00\x01\x00\x00").into();
@@ -244,7 +246,7 @@ fn decode_bin64k_bc() {
     ]));
 }
 
-
+#[cfg(feature="large_frames")]
 #[test]
 fn decode_bin64k_masked() {
     let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();
@@ -259,6 +261,7 @@ fn decode_bin64k_masked() {
     ]));
 }
 
+#[cfg(feature="large_frames")]
 #[test]
 fn decode_bin64k_masked_chunks1() {
     let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();
@@ -274,7 +277,7 @@ fn decode_bin64k_masked_chunks1() {
     ]));
 }
 
-
+#[cfg(feature="large_frames")]
 #[test]
 fn decode_bin64k_masked_chunks2() {
     let mut input : Vec<u8> = (*b"\x82\xFF\x00\x00\x00\x00\x00\x01\x00\x00\x11\x22\x33\x44").into();

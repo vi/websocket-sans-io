@@ -22,6 +22,8 @@ name = "masking_benchmark"
 harness = false
 
 [features]
+default=["large_frames"]
+large_frames=[]
 unoptimised_masking=[]
 explicitly_aligned_masking=[]
 masking_slice_size_4=[]
