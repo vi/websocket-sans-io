@@ -54,8 +54,6 @@ impl WebSocketFrameEncoder {
     }
 }
 
-pub type FrameEncoderError = core::convert::Infallible;
-
 #[inline]
 pub fn encode_frame_header(frame_info: &FrameInfo) -> ArrayVec<[u8; MAX_HEADER_LENGTH]> {
     debug_assert!(frame_info.reserved & 0x7 == frame_info.reserved);

@@ -15,9 +15,11 @@ pub type PayloadLength = u64;
 pub type PayloadLength = u16;
 
 mod frame_encoding;
-pub use frame_encoding::{WebSocketFrameEncoder,FrameEncoderError};
+pub use frame_encoding::WebSocketFrameEncoder;
 mod frame_decoding;
 pub use frame_decoding::{FrameDecoderError,WebSocketFrameDecoder};
+
+mod message_decoding;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Opcode {
@@ -56,11 +58,12 @@ pub enum WebSocketMessageType {
 /// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
 /// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum WebsocketEvent {
-    FrameStart(FrameInfo),
-    FramePayloadChunk,
-    FrameEnd(FrameInfo),
+pub enum WebsocketFrameEvent {
+    Start(FrameInfo),
+    PayloadChunk,
+    End(FrameInfo),
 }
+
 
 #[cfg(test)]
 mod tests;
