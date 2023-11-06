@@ -39,7 +39,7 @@ pub enum Opcode {
     ReservedControlF = 0xF,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct FrameInfo {
     pub opcode: Opcode,
     pub payload_length: PayloadLength,
@@ -55,7 +55,7 @@ pub enum WebSocketMessageType {
 
 /// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
 /// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum WebsocketEvent {
     FrameStart(FrameInfo),
     FramePayloadChunk,

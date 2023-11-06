@@ -60,23 +60,14 @@ pub struct WebSocketFrameDecoder {
     pub(crate) payload_length: PayloadLength,
 }
 
-pub struct WebSocketDecoderAddDataResult<'a> {
+#[derive(Debug,Clone)]
+pub struct WebSocketDecoderAddDataResult {
     /// Data to be fed back into the next invocation of `add_data`.
-    pub unprocessed_input_data: &'a mut [u8],
-    /// Content of [`WebsocketEvent::DataFrameChunk`] or [`WebsocketEvent::ControlFrameChunk`], if any.
-    pub decoded_payload: Option<&'a [u8]>,
+    pub consumed_bytes: usize,
+    /// Content of [`WebsocketEvent::FrameChunk`], if any, as index range of the input buffer.
+    pub decoded_payload: Option<core::ops::Range<usize>>,
     /// Emitted event, if any
     pub event: Option<WebsocketEvent>,
-}
-
-impl<'a> core::fmt::Debug for WebSocketDecoderAddDataResult<'a> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("WebSocketDecoderAddDataResult")
-            .field("unprocessed_input_data.len", &self.unprocessed_input_data.len())
-            .field("decoded_payload.len", &self.decoded_payload.map(|x|x.len()))
-            .field("event", &self.event)
-            .finish()
-    }
 }
 
 impl WebSocketFrameDecoder {
@@ -121,13 +112,13 @@ impl WebSocketFrameDecoder {
     pub fn add_data<'a, 'b>(
         &'a mut self,
         mut data: &'b mut [u8],
-    ) -> Result<WebSocketDecoderAddDataResult<'b>, FrameDecoderError> {
+    ) -> Result<WebSocketDecoderAddDataResult, FrameDecoderError> {
+        let original_data_len = data.len();
         loop {
-        
             macro_rules! return_dummy {
                 () => {
                     return Ok(WebSocketDecoderAddDataResult {
-                        unprocessed_input_data: data,
+                        consumed_bytes: original_data_len - data.len(),
                         decoded_payload: None,
                         event: None,
                     });
@@ -187,7 +178,7 @@ impl WebSocketFrameDecoder {
                         remaining: self.payload_length,
                     };
                     return Ok(WebSocketDecoderAddDataResult {
-                        unprocessed_input_data: data,
+                        consumed_bytes: original_data_len - data.len(),
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameStart(self.get_frame_info(true))),
                     });
@@ -198,7 +189,7 @@ impl WebSocketFrameDecoder {
                 } => {
                     self.state = FrameDecodingState::HeaderBeginning(SmallBufWithLen::new());
                     return Ok(WebSocketDecoderAddDataResult {
-                        unprocessed_input_data: data,
+                        consumed_bytes: original_data_len - data.len(),
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameEnd(
                             self.get_frame_info(phase.is_some()),
@@ -209,11 +200,12 @@ impl WebSocketFrameDecoder {
                     ref mut phase,
                     ref mut remaining,
                 } => {
+                    let start_offset = original_data_len - data.len();
                     let mut max_len = data.len();
                     if let Ok(remaining_usize) = usize::try_from(*remaining) {
                         max_len = max_len.min(remaining_usize);
                     }
-                    let (payload_chunk, rest) = data.split_at_mut(max_len);
+                    let (payload_chunk, _rest) = data.split_at_mut(max_len);
 
                     if let Some(phase) = phase {
                         let mut ph = phase.get();
@@ -224,8 +216,8 @@ impl WebSocketFrameDecoder {
 
                     *remaining -= max_len as PayloadLength;
                     return Ok(WebSocketDecoderAddDataResult {
-                        unprocessed_input_data: rest,
-                        decoded_payload: Some(payload_chunk),
+                        consumed_bytes: max_len,
+                        decoded_payload: Some(start_offset..(start_offset+max_len)),
                         event: Some(WebsocketEvent::FramePayloadChunk),
                     });
                 }
@@ -239,7 +231,7 @@ impl WebSocketFrameDecoder {
                         remaining: self.payload_length,
                     };
                     return Ok(WebSocketDecoderAddDataResult {
-                        unprocessed_input_data: data,
+                        consumed_bytes: original_data_len - data.len(),
                         decoded_payload: None,
                         event: Some(WebsocketEvent::FrameStart(self.get_frame_info(false))),
                     });

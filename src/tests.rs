@@ -33,10 +33,10 @@ fn decode_chunk(d: &mut frame_decoding::WebSocketFrameDecoder, mut ibuf: &mut [u
         //dbg!(ibuf.len());
         let ret = d.add_data(ibuf).unwrap();
         //dbg!(&ret);
-        ibuf = ret.unprocessed_input_data;
         if let Some(chunk) = ret.decoded_payload {
-            payload.extend_from_slice(chunk);
+            payload.extend_from_slice(&ibuf[chunk]);
         }
+        ibuf = &mut ibuf[ret.consumed_bytes..];
         if ibuf.is_empty() && ret.event.is_none() {
             break;   
         }
