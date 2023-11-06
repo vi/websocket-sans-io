@@ -243,11 +243,13 @@ impl WebSocketFrameDecoder {
     /// There is no incomplete WebSocket frame at this moment and EOF is valid here.
     ///
     /// This method is not related to [`Opcode::ConnectionClose`] in any way.
+    #[inline]
     pub fn eof_valid(&self) -> bool {
         matches!(self.state, FrameDecodingState::HeaderBeginning(..))
     }
 
-    pub fn new() -> Self {
+    #[inline]
+    pub const fn new() -> Self {
         WebSocketFrameDecoder {
             state: FrameDecodingState::HeaderBeginning(SmallBufWithLen::new()),
             mask: [0; 4],
