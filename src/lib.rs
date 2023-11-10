@@ -52,10 +52,14 @@ pub struct FrameInfo {
     pub reserved: u8,
 }
 
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum WebSocketDataMessageType {
     Binary,
     Text,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum WebSocketControlMessageType {
     Ping,
     Pong,
@@ -71,17 +75,23 @@ pub enum WebsocketFrameEvent {
     End(FrameInfo),
 }
 
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum WebsocketDataMessageEvent {
-    Start(WebSocketDataMessageType),
+    Start(WebSocketDataMessageType, PayloadLength),
     MorePayloadBytesWillFollow(PayloadLength),
     PayloadChunk,
     End(WebSocketDataMessageType),
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum WebsocketControlMessageEvent {
     Start(WebSocketControlMessageType, PayloadLength),
     PayloadChunk,
     End(WebSocketControlMessageType),
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum WebsocketMessageEvent {
     Data(WebsocketDataMessageEvent),
     Control(WebsocketControlMessageEvent),

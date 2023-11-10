@@ -52,6 +52,10 @@ impl WebsocketFrameEncoder {
             *phase = NonMaxU8::new(newvalue).unwrap();
         }
     }
+
+    pub const fn transform_needed(&self) -> bool {
+        self.phase.is_some()
+    }
 }
 
 #[inline]
