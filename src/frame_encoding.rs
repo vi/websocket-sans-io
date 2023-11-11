@@ -1,18 +1,13 @@
 use nonmax::NonMaxU8;
 use tinyvec::ArrayVec;
 
-use crate::FrameInfo;
+use crate::{FrameInfo, MAX_HEADER_LENGTH};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct WebsocketFrameEncoder {
     mask: [u8; 4],
     phase: Option<NonMaxU8>,
 }
-
-#[cfg(feature = "large_frames")]
-pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;
-#[cfg(not(feature = "large_frames"))]
-pub const MAX_HEADER_LENGTH: usize = 2 + 2 + 4;
 
 impl WebsocketFrameEncoder {
     pub const fn new() -> WebsocketFrameEncoder {
@@ -53,6 +48,7 @@ impl WebsocketFrameEncoder {
         }
     }
 
+    #[inline]
     pub const fn transform_needed(&self) -> bool {
         self.phase.is_some()
     }

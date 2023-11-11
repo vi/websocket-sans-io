@@ -1244,6 +1244,7 @@ dependencies = [
  "pin-project-lite",
  "pretty_assertions",
  "proptest",
+ "rand",
  "tinyvec",
  "tokio",
  "tungstenite",
