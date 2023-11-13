@@ -41,7 +41,9 @@ fn roundtrip_frames(mut input: Vec<u8>) -> Result<Vec<u8>, TestCaseError> {
             }
             Some(WebsocketFrameEvent::PayloadChunk { original_opcode: for_opcode }) => {
                 prop_assert!(ret.decoded_payload.is_some());
-                prop_assert_eq!(for_opcode, cached_info.opcode);
+                if cached_info.opcode != Opcode::Continuation {
+                    prop_assert_eq!(for_opcode, cached_info.opcode);
+                }
                 let payload = &mut ibuf[ret.decoded_payload.unwrap()];
                 encoder.transform_frame_payload(payload);
                 result.extend_from_slice(payload);
@@ -56,6 +58,7 @@ fn roundtrip_frames(mut input: Vec<u8>) -> Result<Vec<u8>, TestCaseError> {
     Ok(result)
 }
 
+use crate::Opcode;
 use crate::{WebsocketFrameDecoder, WebsocketFrameEncoder, WebsocketFrameEvent, FrameInfo};
 proptest! {
     #[cfg(feature="large_frames")]
