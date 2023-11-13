@@ -19,12 +19,6 @@ pub use frame_encoding::WebsocketFrameEncoder;
 mod frame_decoding;
 pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder};
 
-mod message_decoding;
-pub use message_decoding::{WebsocketMessageDecoder,MessageDecoderError};
-mod message_encoding;
-pub use message_encoding::{WebsocketMessageEncoder,MessageEncoderError};
-use tinyvec::ArrayVec;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Opcode {
     Continuation = 0,
@@ -93,66 +87,10 @@ pub enum WebsocketFrameEvent {
 }
 
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum WebsocketDataMessageEvent {
-    Start(WebSocketDataMessageType, PayloadLength),
-    MorePayloadBytesWillFollow(PayloadLength),
-    PayloadChunk,
-    End(WebSocketDataMessageType),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum WebsocketControlMessageEvent {
-    Start(WebSocketControlMessageType, PayloadLength),
-    PayloadChunk,
-    End(WebSocketControlMessageType),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum WebsocketMessageEvent {
-    Data(WebsocketDataMessageEvent),
-    Control(WebsocketControlMessageEvent),
-}
-
-pub trait MaskingFunction {
-    fn get_next_mask(&mut self) -> u32;
-}
-impl<T: FnMut() -> u32> MaskingFunction for T {
-    fn get_next_mask(&mut self) -> u32 {
-        (*self)()
-    }
-}
-#[derive(Debug,Default,Clone, Copy)]
-struct DummyMaskingFunction;
-impl MaskingFunction for DummyMaskingFunction {
-    fn get_next_mask(&mut self) -> u32 {
-        panic!()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Role<MF: MaskingFunction> {
-    Server,
-    Client(MF),
-}
-
-
 #[cfg(feature = "large_frames")]
 pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;
 #[cfg(not(feature = "large_frames"))]
 pub const MAX_HEADER_LENGTH: usize = 2 + 2 + 4;
-
-#[derive(Debug,Clone)]
-pub enum DataToBeWrittenToSocket {
-    PayloadChunkYouProvided(core::ops::Range<usize>),
-    Inlined(ArrayVec<[u8; MAX_HEADER_LENGTH]>),
-}
-
-impl Default for DataToBeWrittenToSocket {
-    fn default() -> Self {
-        DataToBeWrittenToSocket::Inlined(Default::default())
-    }
-}
 
 #[cfg(test)]
 mod decoding_test;
