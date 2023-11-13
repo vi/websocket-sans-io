@@ -83,19 +83,6 @@ impl FrameInfo {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum WebSocketDataMessageType {
-    Binary,
-    Text,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum WebSocketControlMessageType {
-    Ping,
-    Pong,
-    Close,
-}
-
 /// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
 /// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -116,3 +103,4 @@ mod decoding_test;
 
 #[cfg(test)]
 mod frame_roundtrip_test;
+
