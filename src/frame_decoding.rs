@@ -56,10 +56,11 @@ pub(crate) enum FrameDecodingState {
 
 #[derive(Clone, Copy, Debug)]
 pub struct WebsocketFrameDecoder {
-    pub(crate) state: FrameDecodingState,
-    pub(crate) mask: [u8; 4],
-    pub(crate) basic_header: [u8; 2],
-    pub(crate) payload_length: PayloadLength,
+    state: FrameDecodingState,
+    mask: [u8; 4],
+    basic_header: [u8; 2],
+    payload_length: PayloadLength,
+    original_opcode: Opcode,
 }
 
 #[derive(Debug,Clone)]
@@ -144,6 +145,10 @@ impl WebsocketFrameDecoder {
                 FrameDecodingState::HeaderBeginning(ref mut v) => {
                     try_to_fill_buffer_or_return!(v);
                     self.basic_header = v;
+                    let opcode = self.get_opcode();
+                    if opcode.is_data() && opcode != Opcode::Continuation {
+                        self.original_opcode = opcode;
+                    }
                     match self.basic_header[1] & 0x7F {
                         0x7E => {
                             self.state = FrameDecodingState::PayloadLength16(SmallBufWithLen::new())
@@ -190,11 +195,15 @@ impl WebsocketFrameDecoder {
                     remaining: 0,
                 } => {
                     self.state = FrameDecodingState::HeaderBeginning(SmallBufWithLen::new());
+                    let fi = self.get_frame_info(phase.is_some());
+                    if fi.opcode.is_data() && fi.fin {
+                        self.original_opcode = Opcode::Continuation;
+                    }
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: original_data_len - data.len(),
                         decoded_payload: None,
                         event: Some(WebsocketFrameEvent::End(
-                            self.get_frame_info(phase.is_some()),
+                            fi,
                         )),
                     });
                 }
@@ -217,10 +226,14 @@ impl WebsocketFrameDecoder {
                     }
 
                     *remaining -= max_len as PayloadLength;
+                    let mut original_opcode = self.get_opcode();
+                    if original_opcode == Opcode::Continuation {
+                        original_opcode = self.original_opcode;
+                    }
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: max_len,
                         decoded_payload: Some(start_offset..(start_offset+max_len)),
-                        event: Some(WebsocketFrameEvent::PayloadChunk),
+                        event: Some(WebsocketFrameEvent::PayloadChunk{original_opcode}),
                     });
                 }
             }
@@ -257,6 +270,7 @@ impl WebsocketFrameDecoder {
             mask: [0; 4],
             basic_header: [0; 2],
             payload_length: 0,
+            original_opcode: Opcode::Continuation,
         }
     }
 }

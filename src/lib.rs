@@ -40,6 +40,25 @@ pub enum Opcode {
     ReservedControlF = 0xF,
 }
 
+impl Opcode {
+    pub fn is_data(&self) -> bool {
+        match self {
+            Opcode::Continuation => true,
+            Opcode::Text  => true,
+            Opcode::Binary  => true,
+            Opcode::ReservedData3 => true,
+            Opcode::ReservedData4 => true,
+            Opcode::ReservedData5 => true,
+            Opcode::ReservedData6 => true,
+            Opcode::ReservedData7 => true,
+           _ => false,
+        }
+    }
+    pub fn is_control(&self) -> bool {
+        ! self.is_data()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct FrameInfo {
     pub opcode: Opcode,
@@ -82,7 +101,7 @@ pub enum WebSocketControlMessageType {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum WebsocketFrameEvent {
     Start(FrameInfo),
-    PayloadChunk,
+    PayloadChunk{ original_opcode: Opcode },
     End(FrameInfo),
 }
 

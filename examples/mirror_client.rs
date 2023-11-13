@@ -333,7 +333,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     let header = frame_encoder.start_frame(&fi);
                     s.write_all(&header[..]).await?;
                 }
-                WebsocketFrameEvent::PayloadChunk => {
+                WebsocketFrameEvent::PayloadChunk{original_opcode: _} => {
                     let payload_slice = &mut bufslice[ret.decoded_payload.unwrap()];
                     frame_encoder.transform_frame_payload(payload_slice);
                     s.write_all(payload_slice).await?;
