@@ -5,7 +5,7 @@ Low-level WebSocket ([RFC 6455](https://www.rfc-editor.org/rfc/rfc6455)) library
 * Frame payloads may be divided into arbitrary chunks.
 * No validation - you can set or access reserved bits or opcodes if needed.
 * Encoder and decoder states are rather small. You can shrink the decoder further by opting out of `large_frames` crate feature.
-* Masking should re reasonably fast and SIMD-friendly. You can adjust crate features to opt out the optimisation (for smaller code) or to adjust SIMD slice size.
+* Masking should be reasonably fast and SIMD-friendly. You can adjust crate features to opt out the optimisation (for smaller code) or to adjust SIMD slice size.
 * Encoder and decoder instances are const-initialisable.
 
 It is also user's job to handle pings, HTTP upgrades, masking and close frames properly. There is no automatic assembling of messages from frames or splitting messages into frames. WebSocket text frames are handled the same way as binary frames - you need to convert to a string yourself.
