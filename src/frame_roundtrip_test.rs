@@ -38,11 +38,11 @@ fn roundtrip_frames(mut input: Vec<u8>) -> Result<Vec<u8>, TestCaseError> {
                 cached_info = info;
                 result.extend(encoder.start_frame(&info));
             }
-            Some(WebsocketFrameEvent::PayloadChunk { original_opcode: for_opcode, data_range }) => {
+            Some(WebsocketFrameEvent::PayloadChunk { original_opcode: for_opcode }) => {
                 if cached_info.opcode != Opcode::Continuation {
                     prop_assert_eq!(for_opcode, cached_info.opcode);
                 }
-                let payload = &mut ibuf[data_range];
+                let payload = &mut ibuf[0..ret.consumed_bytes];
                 encoder.transform_frame_payload(payload);
                 result.extend_from_slice(payload);
             }
