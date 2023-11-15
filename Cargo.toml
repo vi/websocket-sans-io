@@ -2,12 +2,26 @@
 name = "websocket-sans-io"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/vi/websocket-sans-io"
+license = "MIT/Apache-2.0"
+description = "Low-level WebSocket library"
+categories = ["network-programming", "web-programming::websocket", "no-std::no-alloc"]
+keywords = ["websocket", "sans-io", "low-level", "no-std", "rfc6455"]
 
 [dependencies]
 nonmax = { version = "0.5.3", default-features = false }
 tinyvec = "1.6.0"
+
+
+[features]
+default=["large_frames"]
+large_frames=[]
+unoptimised_masking=[]
+explicitly_aligned_masking=[]
+masking_slice_size_4=[]
+masking_slice_size_8=[]
+masking_slice_size_16=[]
+masking_slice_size_32=[]
 
 [dev-dependencies]
 criterion = "0.5.1"
@@ -25,13 +39,3 @@ tungstenite = "0.20.1"
 [[bench]]
 name = "masking_benchmark"
 harness = false
-
-[features]
-default=["large_frames"]
-large_frames=[]
-unoptimised_masking=[]
-explicitly_aligned_masking=[]
-masking_slice_size_4=[]
-masking_slice_size_8=[]
-masking_slice_size_16=[]
-masking_slice_size_32=[]
