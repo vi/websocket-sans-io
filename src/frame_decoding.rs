@@ -12,24 +12,24 @@ pub enum FrameDecoderError {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct SmallBufWithLen<const C: usize> {
-    pub(crate) len: u8,
-    pub(crate) data: [u8; C],
+struct SmallBufWithLen<const C: usize> {
+    len: u8,
+    data: [u8; C],
 }
 
 impl<const C: usize> SmallBufWithLen<C> {
     /// Take as much bytes as possible from the slice pointer, updating it in process
-    pub(crate) fn slurp<'a, 'c>(&'c mut self, data: &'a mut [u8]) -> &'a mut [u8] {
+    fn slurp<'a, 'c>(&'c mut self, data: &'a mut [u8]) -> &'a mut [u8] {
         let offset = self.len as usize;
         let maxlen = (C - offset).min(data.len());
         self.data[offset..(offset+maxlen)].copy_from_slice(&data[..maxlen]);
         self.len += maxlen as u8;
         &mut data[maxlen..]
     }
-    pub(crate) fn is_full(&self) -> bool {
+    fn is_full(&self) -> bool {
         self.len as usize == C
     }
-    pub(crate) const fn new() -> SmallBufWithLen<C> {
+    const fn new() -> SmallBufWithLen<C> {
         SmallBufWithLen {
             len: 0,
             data: [0u8; C],
@@ -39,7 +39,7 @@ impl<const C: usize> SmallBufWithLen<C> {
 
 /// Represents what data is expected to come next
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum FrameDecodingState {
+enum FrameDecodingState {
     HeaderBeginning(SmallBufWithLen<2>),
     PayloadLength16(SmallBufWithLen<2>),
     #[cfg(feature="large_frames")]
@@ -51,14 +51,30 @@ pub(crate) enum FrameDecodingState {
     },
 }
 
+impl Default for FrameDecodingState {
+    fn default() -> Self {
+        FrameDecodingState::HeaderBeginning(SmallBufWithLen::new())
+    }
+}
+
 /// A low-level WebSocket frames decoder.
+/// 
+/// It is a push parser: you can add offer it bytes that come from a socket and it emites events.
+/// 
+/// You typically need two loops to process incoming data: outer loop reads chunks of data
+/// from sockets, inner loop supplies this chunk to the decoder instance until no more events get emitted.
 /// 
 /// Example usage:
 /// 
 /// ```
 #[doc=include_str!("../examples/decode_frame.rs")]
 /// ```
-#[derive(Clone, Copy, Debug)]
+/// 
+/// Any sequence of bytes result in a some (sensial or not) [`WebsocketFrameEvent`]
+/// sequence (exception: when `large_frames` crate feature is disabled).
+/// 
+/// You may want to validate it (e.g. using [`FrameInfo::is_reasonable`] method) before using.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct WebsocketFrameDecoder {
     state: FrameDecodingState,
     mask: [u8; 4],
@@ -67,23 +83,50 @@ pub struct WebsocketFrameDecoder {
     original_opcode: Opcode,
 }
 
+/// Return value of [`WebsocketFrameDecoder::add_data`] call.
 #[derive(Debug,Clone)]
 pub struct WebsocketFrameDecoderAddDataResult {
-    /// Indicates how many bytes were consumed and should not be supplied again to the subsequent invocation of [`WebsocketFrameDecoder::add_data`].
+    /// Indicates how many bytes were consumed and should not be supplied again to
+    /// the subsequent invocation of [`WebsocketFrameDecoder::add_data`].
+    /// 
+    /// When `add_data` procudes [`WebsocketFrameEvent::PayloadChunk`], it also indicated how many
+    /// of the bytes in the buffer (starting from 0) should be used as a part of payload.
     pub consumed_bytes: usize,
-    /// Emitted event, if any
+    /// Emitted event, if any.
     pub event: Option<WebsocketFrameEvent>,
 }
 
+/// Information that [`WebsocketFrameDecoder`] gives in return to bytes being fed to it.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum WebsocketFrameEvent {
+    /// Indicates a frame is started.
+    /// 
+    /// `original_opcode` is the same as `frame_info.opcode`, except for
+    /// [`Opcode::Continuation`] frames, for which it should refer to
+    /// initial frame in sequence (i.e. [`Opcode::Text`] or [`Opcode::Binary`])
     Start{frame_info: FrameInfo, original_opcode: Opcode},
+
+    /// Bytes which were supplied to [`WebsocketFrameDecoder::add_data`] are payload bytes,
+    /// transformed for usage as a part of payload.
+    /// 
+    /// You should use [`WebsocketFrameDecoderAddDataResult::consumed_bytes`] to get actual
+    /// buffer to be handled as content coming from the WebSocket.
+    /// 
+    /// Mind the `original_opcode` to avoid mixing content of control frames and data frames.
     PayloadChunk{ original_opcode: Opcode},
+
+    /// Indicates that all `PayloadChunk`s for the given frame are delivered and the frame
+    /// is ended.
+    /// 
+    /// You can watch for `frame_info.fin` together with checking `original_opcode` to know
+    /// wnen WebSocket **message** (not just a frame) ends.
+    /// 
+    /// `frame_info` is the same as in [`WebsocketFrameEvent::Start`]'s `frame_info`.
     End{frame_info: FrameInfo, original_opcode: Opcode},
 }
 
 impl WebsocketFrameDecoder {
-    pub(crate) fn get_opcode(&self) -> Opcode {
+    fn get_opcode(&self) -> Opcode {
         use Opcode::*;
         match self.basic_header[0] & 0xF {
             0 => Continuation,
@@ -122,11 +165,18 @@ impl WebsocketFrameDecoder {
         (fi, original_opcode)
     }
 
+    /// Add some bytes to the decoder and return events, if any.
+    /// 
     /// Call this function again if any of the following conditions are met:
     ///
     /// * When new incoming data is available on the socket
-    /// * When previous invocation of `add_data` returned non-empty `unprocessed_input_data`.
-    /// * When previous invocation of `add_data` returned non-`None` `event.
+    /// * When previous invocation of `add_data` returned nonzero [`WebsocketFrameDecoderAddDataResult::consumed_bytes`].
+    /// * When previous invocation of `add_data` returned non-`None` [`WebsocketFrameDecoderAddDataResult::event`].
+    /// 
+    /// You may need call it with empty `data` buffer to get some final [`WebsocketFrameEvent::End`].
+    /// 
+    /// Input buffer needs to be mutable because it is also used to transform (unmask)
+    /// payload content chunks in-place.
     pub fn add_data<'a, 'b>(
         &'a mut self,
         mut data: &'b mut [u8],
@@ -275,6 +325,7 @@ impl WebsocketFrameDecoder {
         matches!(self.state, FrameDecodingState::HeaderBeginning(..))
     }
 
+    /// Create new instance.
     #[inline]
     pub const fn new() -> Self {
         WebsocketFrameDecoder {

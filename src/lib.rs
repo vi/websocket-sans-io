@@ -1,8 +1,6 @@
-//! Low-level WebSocket framing library that does not use memory allocations or IO. Only frame headers are kept in memory, payload content is just shuffled around.
-//!
-//! It is also user's job to properly handle pings, closes, masking (including supplying masking keys) and joining frames into messages.
-//!
-//! It only implements WebSocket frames, not URLs or HTTP upgrades.
+#![doc=include_str!("../README.md")]
+//! 
+//! See [`WebsocketFrameEncoder`] and [`WebsocketFrameDecoder`] for continuation of the documentation.
 
 #![no_std]
 
@@ -17,30 +15,55 @@ pub type PayloadLength = u16;
 mod frame_encoding;
 pub use frame_encoding::WebsocketFrameEncoder;
 mod frame_decoding;
-pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder, WebsocketFrameEvent};
+pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder, WebsocketFrameEvent,WebsocketFrameDecoderAddDataResult};
 
+/// WebSocket frame type.
+/// 
+/// Also includes reserved opcode types as `#[doc(hidden)]` items.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Opcode {
+    /// A continuation frame. Follows [`Opcode::Text`] or [`Opcode::Binary`] frames, extending content of it.
+    /// Final `Continuation` frames has [`FrameInfo::fin`] set to true.
+    /// 
+    /// There may be control frames (e.g. [`Opcode::Ping`]) between initial data frame and continuation frames.
     Continuation = 0,
+    /// First frame of a text WebSocket message.
     Text = 1,
+    /// First frame of a binary WebSocket message.
     Binary = 2,
+    #[doc(hidden)]
     ReservedData3 = 3,
+    #[doc(hidden)]
     ReservedData4 = 4,
+    #[doc(hidden)]
     ReservedData5 = 5,
+    #[doc(hidden)]
     ReservedData6 = 6,
+    #[doc(hidden)]
     ReservedData7 = 7,
+    /// Last frame, indicating that WebSocket connection is now closed.
+    /// You should close the socket upon receipt of this message.
     ConnectionClose = 8,
+    /// WebSocket ping message. You should copy the payload to outgoing
+    /// [`Opcode::Pong`] frame.
     Ping = 9,
+    /// A reply to [`Opcode::Pong`] message.
     Pong = 0xA,
+    #[doc(hidden)]
     ReservedControlB = 0xB,
+    #[doc(hidden)]
     ReservedControlC = 0xC,
+    #[doc(hidden)]
     ReservedControlD = 0xD,
+    #[doc(hidden)]
     ReservedControlE = 0xE,
+    #[doc(hidden)]
     #[default]
     ReservedControlF = 0xF,
 }
 
 impl Opcode {
+    /// Check if this opcode is of a data frame.
     pub fn is_data(&self) -> bool {
         match self {
             Opcode::Continuation => true,
@@ -54,21 +77,37 @@ impl Opcode {
            _ => false,
         }
     }
+    /// Check if this opcode is of a control frame.
     pub fn is_control(&self) -> bool {
         ! self.is_data()
     }
 }
 
+/// Information about WebSocket frame header.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct FrameInfo {
+    /// Type of this WebSocket frame
     pub opcode: Opcode,
+    /// Length of this frame's payload. Not to be confused with WebSocket 
+    /// **message** length, which is unknown, unless [`FrameInfo::fin` ] is set.
     pub payload_length: PayloadLength,
+    /// Whether this frame uses (or should use, for encoder) masking
+    /// (and the mask used)
     pub mask: Option<[u8; 4]>,
+    /// Whether this frame is a final frame and no [`Opcode::Continuation`] should follow
+    /// to extend the content of it.
     pub fin: bool,
+    /// Should be `0` unless some extensions are used.
     pub reserved: u8,
 }
 
 impl FrameInfo {
+    /// Indicates that this frame looks like a normal, well-formed
+    /// frame (not considering WebSocket extensions).
+    /// 
+    /// Does not check for valitity of a frame within a sequence of frames,
+    /// e.g. for orphaned [`Opcode::Continuation`] frames or
+    /// for unfinished prior messages.
     pub const fn is_reasonable(&self) -> bool {
         if self.reserved != 0 { return false; }
         match self.opcode {
@@ -83,8 +122,11 @@ impl FrameInfo {
     }
 }
 
+/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
 #[cfg(feature = "large_frames")]
 pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;
+
+/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
 #[cfg(not(feature = "large_frames"))]
 pub const MAX_HEADER_LENGTH: usize = 2 + 2 + 4;
 
