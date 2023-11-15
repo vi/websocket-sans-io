@@ -303,9 +303,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let bufslice = &mut buf[bufptr..];
         let ret = frame_decoder.add_data(bufslice)?;
         bufptr += ret.consumed_bytes;
-        if let Some(ev) = ret.event {
+        if let Some(ref ev) = ret.event {
             match ev {
-                WebsocketFrameEvent::Start(mut fi) => {
+                WebsocketFrameEvent::Start{frame_info: mut fi, ..} => {
                     if !fi.is_reasonable() {
                         println!("Unreasonable frame");
                         error = true;
@@ -333,12 +333,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     let header = frame_encoder.start_frame(&fi);
                     s.write_all(&header[..]).await?;
                 }
-                WebsocketFrameEvent::PayloadChunk{original_opcode: _} => {
-                    let payload_slice = &mut bufslice[ret.decoded_payload.unwrap()];
+                WebsocketFrameEvent::PayloadChunk{original_opcode: _, data_range} => {
+                    let payload_slice = &mut bufslice[data_range.clone()];
                     frame_encoder.transform_frame_payload(payload_slice);
                     s.write_all(payload_slice).await?;
                 }
-                WebsocketFrameEvent::End(_) => (),
+                WebsocketFrameEvent::End{..} => (),
             }
         }
         if ret.consumed_bytes == 0 && ret.event.is_none() {

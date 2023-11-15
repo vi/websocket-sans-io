@@ -17,7 +17,7 @@ pub type PayloadLength = u16;
 mod frame_encoding;
 pub use frame_encoding::WebsocketFrameEncoder;
 mod frame_decoding;
-pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder};
+pub use frame_decoding::{FrameDecoderError,WebsocketFrameDecoder, WebsocketFrameEvent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Opcode {
@@ -82,16 +82,6 @@ impl FrameInfo {
         }
     }
 }
-
-/// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
-/// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum WebsocketFrameEvent {
-    Start(FrameInfo),
-    PayloadChunk{ original_opcode: Opcode },
-    End(FrameInfo),
-}
-
 
 #[cfg(feature = "large_frames")]
 pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;

@@ -34,22 +34,22 @@ fn roundtrip_frames(mut input: Vec<u8>) -> Result<Vec<u8>, TestCaseError> {
                 }
             }
             #[allow(unused_assignments)]
-            Some(WebsocketFrameEvent::Start(info)) => {
-                prop_assert_eq!(ret.decoded_payload, None);
+            Some(WebsocketFrameEvent::Start{frame_info:info, original_opcode:_}) => {
                 cached_info = info;
                 result.extend(encoder.start_frame(&info));
             }
-            Some(WebsocketFrameEvent::PayloadChunk { original_opcode: for_opcode }) => {
-                prop_assert!(ret.decoded_payload.is_some());
+            Some(WebsocketFrameEvent::PayloadChunk { original_opcode: for_opcode, data_range }) => {
                 if cached_info.opcode != Opcode::Continuation {
                     prop_assert_eq!(for_opcode, cached_info.opcode);
                 }
-                let payload = &mut ibuf[ret.decoded_payload.unwrap()];
+                let payload = &mut ibuf[data_range];
                 encoder.transform_frame_payload(payload);
                 result.extend_from_slice(payload);
             }
-            Some(WebsocketFrameEvent::End(info)) => {
-                prop_assert_eq!(ret.decoded_payload, None);
+            Some(WebsocketFrameEvent::End{frame_info:info, original_opcode}) => {
+                if cached_info.opcode != Opcode::Continuation {
+                    prop_assert_eq!(original_opcode, cached_info.opcode);
+                }
                 prop_assert_eq!(info, cached_info);
             }
         }

@@ -1,7 +1,5 @@
 use crate::{PayloadLength, Opcode, FrameInfo, masking};
 
-use super::WebsocketFrameEvent;
-
 use nonmax::NonMaxU8;
 
 
@@ -53,7 +51,62 @@ pub(crate) enum FrameDecodingState {
     },
 }
 
-
+/// A low-level WebSocket frames decoder.
+/// 
+/// Example usage:
+/// 
+/// ```
+///use std::io::Read;
+///
+///use tungstenite::{protocol::Role, Message};
+///use websocket_sans_io::{FrameInfo, Opcode, WebsocketFrameEvent};
+///
+///fn main() {
+///    let (tunstenite_end, mut sansio_end) = pipe::bipipe();
+///    std::thread::spawn(move || {
+///        let mut tunstenite =
+///            tungstenite::protocol::WebSocket::from_raw_socket(tunstenite_end, Role::Client, None);
+///        tunstenite
+///            .send(Message::Text("Hello, world\n".to_owned()))
+///            .unwrap();
+///    });
+///
+///    let mut frame_decoder = websocket_sans_io::WebsocketFrameDecoder::new();
+///    let mut result = Vec::<u8>::new();
+///    let mut buf = [0u8; 1024];
+///
+///    // This loop should handle multi-frame message and control messages interrupting stream of data frames,
+///    // but it does not reply to WebSocket pings
+///    'read_loop: loop {
+///        let n = sansio_end.read(&mut buf).unwrap();
+///        let mut processed_offset = 0;
+///        'decode_chunk_loop: loop {
+///            let unprocessed_part_of_buf = &mut buf[processed_offset..n];
+///            let ret = frame_decoder.add_data(unprocessed_part_of_buf).unwrap();
+///            processed_offset += ret.consumed_bytes;
+///
+///            if ret.event.is_none() && ret.consumed_bytes == 0 {
+///                break 'decode_chunk_loop;
+///            }
+///
+///            match ret.event {
+///                Some(WebsocketFrameEvent::PayloadChunk {
+///                    original_opcode: Opcode::Text,
+///                    data_range,
+///                }) => {
+///                    result.extend_from_slice(&unprocessed_part_of_buf[data_range]);
+///                }
+///                Some(WebsocketFrameEvent::End {
+///                    frame_info: FrameInfo { fin: true, .. },
+///                    original_opcode: Opcode::Text,
+///                }) => break 'read_loop,
+///                _ => (),
+///            }
+///        }
+///    }
+///    assert_eq!(result, b"Hello, world\n");
+///}
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct WebsocketFrameDecoder {
     state: FrameDecodingState,
@@ -65,12 +118,20 @@ pub struct WebsocketFrameDecoder {
 
 #[derive(Debug,Clone)]
 pub struct WebsocketFrameDecoderAddDataResult {
-    /// Data to be fed back into the next invocation of `add_data`.
+    /// Indicates how many bytes were consumed and should not be supplied again to the subsequent invocation of [`WebsocketFrameDecoder::add_data`].
     pub consumed_bytes: usize,
-    /// Content of [`WebsocketEvent::FrameChunk`], if any, as index range of the input buffer.
-    pub decoded_payload: Option<core::ops::Range<usize>>,
     /// Emitted event, if any
     pub event: Option<WebsocketFrameEvent>,
+}
+
+/// Events that [`WebSocketEncoder`] consume or [`WebSocketDecoder`] produce.
+/// Does not contain actual payload data - content chunks are delivered (or supplied) as a separate argument
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum WebsocketFrameEvent {
+    Start{frame_info: FrameInfo, original_opcode: Opcode},
+    /// Range indexes within `data` input slice of [`WebsocketFrameDecoder::add_data`].
+    PayloadChunk{ original_opcode: Opcode, data_range: core::ops::Range<usize> },
+    End{frame_info: FrameInfo, original_opcode: Opcode},
 }
 
 impl WebsocketFrameDecoder {
@@ -97,14 +158,20 @@ impl WebsocketFrameDecoder {
         }
     }
 
-    pub(crate) fn get_frame_info(&self, masked: bool) -> FrameInfo {
-        FrameInfo {
+    /// Get frame info and original opcode
+    fn get_frame_info(&self, masked: bool) -> (FrameInfo, Opcode) {
+        let fi = FrameInfo {
             opcode: self.get_opcode(),
             payload_length: self.payload_length,
             mask: if masked { Some(self.mask) } else { None },
             fin: self.basic_header[0] & 0x80 == 0x80,
             reserved: (self.basic_header[0] & 0x70) >> 4,
+        };
+        let mut original_opcode = fi.opcode;
+        if original_opcode==Opcode::Continuation {
+            original_opcode = self.original_opcode;
         }
+        (fi, original_opcode)
     }
 
     /// Call this function again if any of the following conditions are met:
@@ -122,7 +189,6 @@ impl WebsocketFrameDecoder {
                 () => {
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: original_data_len - data.len(),
-                        decoded_payload: None,
                         event: None,
                     });
                 };
@@ -184,10 +250,10 @@ impl WebsocketFrameDecoder {
                         phase: Some(NonMaxU8::default()),
                         remaining: self.payload_length,
                     };
+                    let (frame_info, original_opcode) = self.get_frame_info(true);
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: original_data_len - data.len(),
-                        decoded_payload: None,
-                        event: Some(WebsocketFrameEvent::Start(self.get_frame_info(true))),
+                        event: Some(WebsocketFrameEvent::Start{frame_info, original_opcode}),
                     });
                 }
                 FrameDecodingState::PayloadData {
@@ -195,16 +261,14 @@ impl WebsocketFrameDecoder {
                     remaining: 0,
                 } => {
                     self.state = FrameDecodingState::HeaderBeginning(SmallBufWithLen::new());
-                    let fi = self.get_frame_info(phase.is_some());
+                    let (fi, original_opcode) = self.get_frame_info(phase.is_some());
                     if fi.opcode.is_data() && fi.fin {
                         self.original_opcode = Opcode::Continuation;
                     }
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: original_data_len - data.len(),
-                        decoded_payload: None,
-                        event: Some(WebsocketFrameEvent::End(
-                            fi,
-                        )),
+                        event: Some(WebsocketFrameEvent::End{frame_info: fi, original_opcode}
+                            ),
                     });
                 }
                 FrameDecodingState::PayloadData {
@@ -232,8 +296,7 @@ impl WebsocketFrameDecoder {
                     }
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: max_len,
-                        decoded_payload: Some(start_offset..(start_offset+max_len)),
-                        event: Some(WebsocketFrameEvent::PayloadChunk{original_opcode}),
+                        event: Some(WebsocketFrameEvent::PayloadChunk{original_opcode, data_range:start_offset..(start_offset+max_len)}),
                     });
                 }
             }
@@ -245,10 +308,10 @@ impl WebsocketFrameDecoder {
                         phase: None,
                         remaining: self.payload_length,
                     };
+                    let (frame_info, original_opcode) = self.get_frame_info(false);
                     return Ok(WebsocketFrameDecoderAddDataResult {
                         consumed_bytes: original_data_len - data.len(),
-                        decoded_payload: None,
-                        event: Some(WebsocketFrameEvent::Start(self.get_frame_info(false))),
+                        event: Some(WebsocketFrameEvent::Start{frame_info, original_opcode}),
                     });
                 }
             }
