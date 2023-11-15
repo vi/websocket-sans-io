@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     loop {
         let bufslice = &mut buf[bufptr..];
-        let ret = frame_decoder.add_data(bufslice)?;
+        let ret = frame_decoder.add_data(bufslice).unwrap();
         bufptr += ret.consumed_bytes;
         if let Some(ref ev) = ret.event {
             match ev {
