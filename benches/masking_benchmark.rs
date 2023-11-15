@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use websocket_sans_io::masking::apply_mask;
+use websocket_sans_io::apply_mask;
 
 fn small_buffer(c: &mut Criterion) {
     let mask = *b"\x23\x34\x55\x00";

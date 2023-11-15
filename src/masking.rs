@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 #[cfg(feature="unoptimised_masking")]
 pub fn apply_mask(mask: [u8; 4], payload_chunk: &mut [u8], mut phase: u8) {
     for b in payload_chunk.iter_mut() {

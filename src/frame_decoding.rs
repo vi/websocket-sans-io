@@ -2,9 +2,13 @@ use crate::{PayloadLength, Opcode, FrameInfo, masking};
 
 use nonmax::NonMaxU8;
 
-
+/// When large_frames` crate feature is on (by default), any bytes can be decoded, so no error possible.
 #[cfg(feature="large_frames")]
 pub type FrameDecoderError = core::convert::Infallible;
+
+/// When large_frames` crate feature is off (like now), WebSocket frame headers denoting large frames
+/// produce this error.
+#[allow(missing_docs)]
 #[cfg(not(feature="large_frames"))]
 #[derive(Debug,PartialEq, Eq, PartialOrd, Ord,Hash,Clone, Copy)]
 pub enum FrameDecoderError {
@@ -96,6 +100,7 @@ pub struct WebsocketFrameDecoderAddDataResult {
     pub event: Option<WebsocketFrameEvent>,
 }
 
+#[allow(missing_docs)]
 /// Information that [`WebsocketFrameDecoder`] gives in return to bytes being fed to it.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum WebsocketFrameEvent {

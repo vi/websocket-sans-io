@@ -21,6 +21,7 @@ pub struct WebsocketFrameEncoder {
 }
 
 impl WebsocketFrameEncoder {
+    /// Create new instance of WebsocketFrameEncoder
     pub const fn new() -> WebsocketFrameEncoder {
         WebsocketFrameEncoder {
             mask: [0; 4],

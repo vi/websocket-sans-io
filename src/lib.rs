@@ -1,14 +1,27 @@
+#![cfg_attr(not(feature="explicitly_aligned_masking"),forbid(unsafe_code))]
+#![warn(missing_docs)]
+
 #![doc=include_str!("../README.md")]
 //! 
 //! See [`WebsocketFrameEncoder`] and [`WebsocketFrameDecoder`] for continuation of the documentation.
 
 #![no_std]
 
-pub mod masking;
+mod masking;
 
+/// Apply WebSocket masking to the giben block of data.
+/// 
+/// `phase` is a number from 0 to 3, meaning zeroeth byte a `payload_chunk` should be 
+/// masked with `phase`'s byte of `mask`.
+/// 
+/// Crate features `unoptimised_maskin`, `explicitly_aligned_masking` and `masking_slice_size_{4,8,16,32}` affect implementation of this function.
+pub use masking::apply_mask;
 
+/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
 #[cfg(feature="large_frames")]
 pub type PayloadLength = u64;
+
+/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
 #[cfg(not(feature="large_frames"))]
 pub type PayloadLength = u16;
 
@@ -122,11 +135,11 @@ impl FrameInfo {
     }
 }
 
-/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
+/// Maximum number of bytes in a WebSocket frame header. Less if `large_frames` crate feature is off.
 #[cfg(feature = "large_frames")]
 pub const MAX_HEADER_LENGTH: usize = 2 + 8 + 4;
 
-/// Type alias for payload length. u64 by default, u16 when `large_frames` crate feature is off.
+/// Maximum number of bytes in a WebSocket frame header. Less if `large_frames` crate feature is off.
 #[cfg(not(feature = "large_frames"))]
 pub const MAX_HEADER_LENGTH: usize = 2 + 2 + 4;
 
