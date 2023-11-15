@@ -3,6 +3,13 @@ use tinyvec::ArrayVec;
 
 use crate::{FrameInfo, MAX_HEADER_LENGTH};
 
+/// A low-level WebSocket frames decoder.
+/// 
+/// Example usage:
+/// 
+/// ```
+#[doc=include_str!("../examples/encode_frame.rs")]
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct WebsocketFrameEncoder {
     mask: [u8; 4],
