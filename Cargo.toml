@@ -13,7 +13,7 @@ tinyvec = "1.6.0"
 criterion = "0.5.1"
 hex_fmt = "0.3.0"
 http-body-util = "0.1.0-rc.3"
-hyper = { version = "1.0.0-rc.4", features = ["client", "http1"] }
+hyper = { version = "1.0.0", features = ["client", "http1"] }
 pin-project-lite = "0.2.13"
 pipe = { version = "0.4.0", features = ["bidirectional"] }
 pretty_assertions = "1.4.0"
