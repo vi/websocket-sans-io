@@ -2,20 +2,18 @@ use std::net::SocketAddr;
 
 use http_body_util::Empty;
 use hyper::body::Bytes;
+use hyper_util::rt::TokioIo;
 use rand::Rng;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 use websocket_sans_io::{
     FrameInfo, Opcode, WebsocketFrameDecoder, WebsocketFrameEncoder, WebsocketFrameEvent,
 };
-
-#[path="../src/tokiort.rs"]
-mod tokiort;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr: SocketAddr = "127.0.0.1:1234".parse()?;
     let s = tokio::net::TcpStream::connect(addr).await?;
-    let s = tokiort::TokioIo::new(s);
+    let s = TokioIo::new(s);
     let b = hyper::client::conn::http1::Builder::new();
     let (mut sr, conn) = b.handshake::<_, Empty<Bytes>>(s).await?;
     tokio::spawn(async move {
@@ -38,10 +36,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let resp = sr.send_request(rq).await?;
 
     let upg = hyper::upgrade::on(resp).await?;
-    let Ok(parts) = upg.downcast::<tokiort::TokioIo<tokio::net::TcpStream>>() else {
+    let Ok(parts) = upg.downcast::<TokioIo<tokio::net::TcpStream>>() else {
         return Err("Failed to downcast".into());
     };
-    let mut s = parts.io.inner();
+    let s : TokioIo<TcpStream> = parts.io;
+    let mut s = s.into_inner();
     let debt = parts.read_buf;
 
     let mut buf = Vec::<u8>::with_capacity(debt.len().max(4096));
